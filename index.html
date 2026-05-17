@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VoiceRead — Speech Emotion AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:      #0d0d0f;
+    --paper:    #f5f0e8;
+    --warm:     #e8e0d0;
+    --accent:   #c8473a;
+    --gold:     #c4952a;
+    --sage:     #4a7c59;
+    --slate:    #3a4a5c;
+    --muted:    #8a8070;
+    --border:   #d4cbbf;
+
+    --emo-neutral:   #8a8070;
+    --emo-calm:      #4a7c59;
+    --emo-happy:     #c4952a;
+    --emo-sad:       #3a4a5c;
+    --emo-angry:     #c8473a;
+    --emo-fearful:   #6a4a7c;
+    --emo-disgust:   #5c6a3a;
+    --emo-surprised: #2a7c8a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 999;
+  }
+
+  /* ── Layout ── */
+  .shell {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+  }
+  header .shell {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .logo span { color: var(--accent); }
+  .tagline {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .mode-badge {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--ink);
+    color: var(--paper);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 56px 0 40px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .hero p {
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 480px;
+    margin: 0 auto 40px;
+    line-height: 1.7;
+  }
+
+  /* ── Main Card ── */
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .card-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--warm);
+  }
+  .card-header h2 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-red { background: #e85555; }
+  .dot-yellow { background: #e8c455; }
+  .dot-green { background: #55c468; }
+
+  /* ── Drop Zone ── */
+  .drop-zone {
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: 2px dashed transparent;
+    margin: 24px;
+    border-radius: 4px;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    background: var(--warm);
+    border-color: var(--border);
+  }
+  .drop-icon {
+    width: 56px; height: 56px;
+    background: var(--warm);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    transition: transform 0.2s;
+  }
+  .drop-zone:hover .drop-icon { transform: scale(1.1); }
+  .drop-zone p { color: var(--muted); font-size: 0.9rem; text-align: center; }
+  .drop-zone strong { color: var(--ink); }
+  .file-types {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    background: transparent;
+    color: var(--ink);
+  }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-primary:hover { background: var(--slate); border-color: var(--slate); }
+  .btn-danger { border-color: var(--accent); color: var(--accent); }
+  .btn-danger:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .record-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .record-btn:hover { background: var(--accent); }
+  .record-btn.recording {
+    background: var(--accent);
+    animation: pulse-ring 1.2s ease-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(200,71,58,0.4); }
+    70%  { box-shadow: 0 0 0 14px rgba(200,71,58,0); }
+    100% { box-shadow: 0 0 0 0 rgba(200,71,58,0); }
+  }
+
+  /* ── Waveform ── */
+  .waveform-wrap {
+    padding: 0 24px 8px;
+  }
+  canvas#waveform {
+    width: 100%;
+    height: 72px;
+    background: var(--warm);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Recording controls ── */
+  .rec-controls {
+    padding: 16px 24px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .rec-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    color: var(--accent);
+    min-width: 56px;
+  }
+  .rec-status {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* ── Divider ── */
+  .or-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 24px 24px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .or-divider::before, .or-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Analyse button section ── */
+  .analyse-section {
+    padding: 0 24px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .file-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: var(--warm);
+    padding: 4px 8px;
+    border-radius: 2px;
+  }
+
+  /* ── Loading ── */
+  .loading {
+    padding: 48px 24px;
+    text-align: center;
+    display: none;
+  }
+  .loading.active { display: block; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading p { color: var(--muted); font-size: 0.85rem; }
+
+  /* ── Results ── */
+  .results {
+    display: none;
+    padding: 24px;
+    border-top: 1px solid var(--border);
+    background: #fafaf8;
+  }
+  .results.active { display: block; }
+
+  .result-hero {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 28px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .result-emoji { font-size: 3rem; line-height: 1; }
+  .result-label {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    letter-spacing: -0.02em;
+    text-transform: capitalize;
+  }
+  .result-conf {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .conf-bar-wrap { flex: 1; }
+  .conf-bar-bg {
+    height: 6px;
+    background: var(--warm);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .conf-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* All emotions grid */
+  .emotions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .emo-card {
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: border-color 0.2s;
+  }
+  .emo-card.top { border-color: var(--accent); background: #fff8f7; }
+  .emo-emoji { font-size: 1.2rem; }
+  .emo-info { flex: 1; min-width: 0; }
+  .emo-name {
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    margin-bottom: 4px;
+  }
+  .emo-bar-bg {
+    height: 4px;
+    background: var(--warm);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .emo-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1) var(--delay, 0ms);
+  }
+  .emo-pct {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ── Analysis text ── */
+  .analysis-text {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 16px 20px;
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: #2a2a2a;
+    white-space: pre-wrap;
+  }
+  .analysis-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* ── Reset ── */
+  .reset-row {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+
+  /* ── Info strip ── */
+  .info-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 48px;
+    overflow: hidden;
+  }
+  .info-item {
+    background: var(--paper);
+    padding: 20px;
+  }
+  .info-item dt {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .info-item dd {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.3rem;
+  }
+  .info-item dd small {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* ── Error ── */
+  .error-box {
+    background: #fff5f5;
+    border: 1px solid #e8aaaa;
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-size: 0.85rem;
+    color: var(--accent);
+    display: none;
+    margin: 0 24px 16px;
+  }
+  .error-box.active { display: block; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: 48px;
+  }
+  footer code {
+    font-family: 'DM Mono', monospace;
+    background: var(--warm);
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="shell">
+    <div class="logo">Voice<span>Read</span></div>
+    <div class="tagline">Speech Emotion AI</div>
+    <div class="mode-badge" id="modeBadge">DEMO MODE</div>
+  </div>
+</header>
+
+<main class="shell">
+  <section class="hero">
+    <h1>Hear what your<br>voice <em>feels</em></h1>
+    <p>Upload a short audio clip or record yourself speaking. The model detects emotion from speech using a CNN trained on the RAVDESS dataset.</p>
+  </section>
+
+  <dl class="info-strip">
+    <div class="info-item">
+      <dt>Emotions Detected</dt>
+      <dd>8 <small>classes</small></dd>
+    </div>
+    <div class="info-item">
+      <dt>Model Architecture</dt>
+      <dd>CNN <small>+ ResBlocks</small></dd>
+    </div>
+    <div class="info-item">
+      <dt>Input Feature</dt>
+      <dd>Mel <small>Spectrogram</small></dd>
+    </div>
+    <div class="info-item">
+      <dt>Dataset</dt>
+      <dd>RAVDESS <small>24 actors</small></dd>
+    </div>
+  </dl>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="dot dot-red"></div>
+      <div class="dot dot-yellow"></div>
+      <div class="dot dot-green"></div>
+      <h2>Audio Input</h2>
+    </div>
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">🎵</div>
+      <p><strong>Drop an audio file here</strong><br>or click to browse</p>
+      <p class="file-types">.WAV &nbsp;·&nbsp; .MP3 &nbsp;·&nbsp; .OGG &nbsp;·&nbsp; .FLAC</p>
+      <input type="file" id="fileInput" accept=".wav,.mp3,.ogg,.flac" style="display:none">
+    </div>
+
+    <div class="or-divider">or record live</div>
+
+    <div class="rec-controls">
+      <button class="record-btn" id="recordBtn" title="Record audio">🎤</button>
+      <div>
+        <div class="rec-time" id="recTime">0:00</div>
+        <div class="rec-status" id="recStatus">Click to start recording (max 10s)</div>
+      </div>
+    </div>
+
+    <div class="waveform-wrap">
+      <canvas id="waveform"></canvas>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <div class="analyse-section" id="analyseSection" style="display:none">
+      <button class="btn btn-primary" id="analyseBtn">✦ Analyse Emotion</button>
+      <span class="file-name" id="fileNameDisplay"></span>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Extracting features &amp; classifying emotion…</p>
+    </div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+      <div class="result-hero">
+        <div class="result-emoji" id="topEmoji">😐</div>
+        <div style="flex:1">
+          <div class="result-label" id="topEmotion">neutral</div>
+          <div class="result-conf" id="topConf">Confidence: 0%</div>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar-bg">
+              <div class="conf-bar-fill" id="confBar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="emotions-grid" id="emotionsGrid"></div>
+
+      <div class="analysis-label">AI Analysis</div>
+      <div class="analysis-text" id="analysisText">…</div>
+    </div>
+
+    <div class="reset-row" id="resetRow" style="display:none">
+      <button class="btn btn-danger" id="resetBtn">↺ Reset</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="shell">
+    Built on RAVDESS · CNN trained in PyTorch · Deploy with <code>uvicorn api:app</code> ·
+    Demo mode uses Claude API · <a href="https://github.com/opbot-xd/sac-per-ablation-study" style="color:var(--muted)">Vision Dubey</a>
+  </div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════
+// Config
+// ═══════════════════════════════════════════════════
+
+const API_URL      = '/predict';          // FastAPI endpoint (prod)
+const CLAUDE_API   = 'https://api.anthropic.com/v1/messages';
+const DEMO_MODE    = true;                // set false when FastAPI is running
+
+const EMOTION_COLORS = {
+  neutral: '#8a8070', calm: '#4a7c59', happy: '#c4952a', sad: '#3a4a5c',
+  angry: '#c8473a', fearful: '#6a4a7c', disgust: '#5c6a3a', surprised: '#2a7c8a'
+};
+const EMOTION_EMOJI = {
+  neutral: '😐', calm: '😌', happy: '😊', sad: '😢',
+  angry: '😠', fearful: '😨', disgust: '🤢', surprised: '😲'
+};
+
+// ═══════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════
+
+let audioBlob   = null;
+let audioBuffer = null;
+let mediaRec    = null;
+let recChunks   = [];
+let recTimer    = null;
+let recSeconds  = 0;
+let analyCtx    = null;
+let analyser    = null;
+let rafId       = null;
+
+// ═══════════════════════════════════════════════════
+// DOM refs
+// ═══════════════════════════════════════════════════
+
+const dropZone       = document.getElementById('dropZone');
+const fileInput      = document.getElementById('fileInput');
+const recordBtn      = document.getElementById('recordBtn');
+const recTime        = document.getElementById('recTime');
+const recStatus      = document.getElementById('recStatus');
+const analyseSection = document.getElementById('analyseSection');
+const analyseBtn     = document.getElementById('analyseBtn');
+const fileNameDisplay= document.getElementById('fileNameDisplay');
+const loading        = document.getElementById('loading');
+const results        = document.getElementById('results');
+const resetRow       = document.getElementById('resetRow');
+const errorBox       = document.getElementById('errorBox');
+const waveCanvas     = document.getElementById('waveform');
+const modeBadge      = document.getElementById('modeBadge');
+const ctx            = waveCanvas.getContext('2d');
+
+// ═══════════════════════════════════════════════════
+// File Drop / Upload
+// ═══════════════════════════════════════════════════
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  audioBlob = file;
+  fileNameDisplay.textContent = file.name;
+  analyseSection.style.display = 'flex';
+  hideError();
+  // draw static waveform from file
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const decoded = await new AudioContext().decodeAudioData(ev.target.result);
+    drawStaticWaveform(decoded);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function drawStaticWaveform(audioDecodedBuf) {
+  const data = audioDecodedBuf.getChannelData(0);
+  const W = waveCanvas.width  = waveCanvas.offsetWidth;
+  const H = waveCanvas.height = 72;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, W, H);
+  const step = Math.ceil(data.length / W);
+  ctx.strokeStyle = '#c8473a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < W; i++) {
+    const slice = data.slice(i * step, (i + 1) * step);
+    const max = slice.reduce((a, b) => Math.max(a, Math.abs(b)), 0);
+    const y = (1 - max) * H / 2;
+    i === 0 ? ctx.moveTo(i, H / 2) : ctx.lineTo(i, H / 2 - (max * H / 2));
+  }
+  ctx.stroke();
+}
+
+// ═══════════════════════════════════════════════════
+// Recording
+// ═══════════════════════════════════════════════════
+
+recordBtn.addEventListener('click', async () => {
+  if (mediaRec && mediaRec.state === 'recording') {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+});
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    analyCtx  = new AudioContext();
+    const src = analyCtx.createMediaStreamSource(stream);
+    analyser  = analyCtx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    drawLiveWaveform();
+
+    mediaRec   = new MediaRecorder(stream);
+    recChunks  = [];
+    recSeconds = 0;
+
+    mediaRec.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
+    mediaRec.onstop = () => {
+      const blob = new Blob(recChunks, { type: 'audio/wav' });
+      audioBlob  = blob;
+      fileNameDisplay.textContent = `recording_${Date.now()}.wav`;
+      analyseSection.style.display = 'flex';
+      cancelAnimationFrame(rafId);
+      stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRec.start();
+    recordBtn.classList.add('recording');
+    recordBtn.textContent = '⏹';
+    recStatus.textContent = 'Recording… (click to stop)';
+
+    recTimer = setInterval(() => {
+      recSeconds++;
+      const m = Math.floor(recSeconds / 60);
+      const s = recSeconds % 60;
+      recTime.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      if (recSeconds >= 10) stopRecording();
+    }, 1000);
+  } catch(e) {
+    showError('Microphone access denied. Please allow microphone and try again.');
+  }
+}
+
+function stopRecording() {
+  clearInterval(recTimer);
+  if (mediaRec && mediaRec.state !== 'inactive') mediaRec.stop();
+  recordBtn.classList.remove('recording');
+  recordBtn.textContent = '🎤';
+  recStatus.textContent = 'Recording complete. Click to record again.';
+}
+
+function drawLiveWaveform() {
+  rafId = requestAnimationFrame(drawLiveWaveform);
+  const W = waveCanvas.width  = waveCanvas.offsetWidth;
+  const H = waveCanvas.height = 72;
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(buf);
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#c8473a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const sliceWidth = W / buf.length;
+  for (let i = 0; i < buf.length; i++) {
+    const v = buf[i] / 128.0;
+    const y = v * H / 2;
+    i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sliceWidth, y);
+  }
+  ctx.stroke();
+}
+
+// ═══════════════════════════════════════════════════
+// Analyse
+// ═══════════════════════════════════════════════════
+
+analyseBtn.addEventListener('click', analyse);
+
+async function analyse() {
+  if (!audioBlob) return;
+  hideError();
+  analyseSection.style.display = 'none';
+  loading.classList.add('active');
+  results.classList.remove('active');
+  resetRow.style.display = 'none';
+
+  try {
+    let data;
+    if (DEMO_MODE) {
+      data = await analyseWithClaude();
+    } else {
+      data = await analyseWithAPI();
+    }
+    renderResults(data);
+  } catch (e) {
+    showError('Analysis failed: ' + e.message);
+    analyseSection.style.display = 'flex';
+  } finally {
+    loading.classList.remove('active');
+    resetRow.style.display = 'flex';
+  }
+}
+
+// ── Claude API Demo Mode ─────────────────────────────────────
+async function analyseWithClaude() {
+  // Extract basic audio features in browser to inform Claude
+  let features = await extractBrowserFeatures();
+
+  const prompt = `You are a speech emotion recognition AI. Based on these audio signal features extracted from a speech recording, predict the most likely emotion from the RAVDESS dataset.
+
+RAVDESS emotions: neutral, calm, happy, sad, angry, fearful, disgust, surprised
+
+Audio features:
+- Duration: ${features.duration.toFixed(2)}s
+- RMS Energy: ${features.rms.toFixed(4)} (higher = louder/more intense)
+- Zero Crossing Rate: ${features.zcr.toFixed(4)} (higher = more fricatives/harsh sounds)
+- Spectral Centroid (normalized): ${features.spectralCentroid.toFixed(4)} (higher = brighter)
+- Peak Amplitude: ${features.peakAmplitude.toFixed(4)}
+- Energy Variance: ${features.energyVariance.toFixed(6)} (higher = more dynamic)
+
+Based on these features, make a realistic prediction. Return ONLY valid JSON with no extra text:
+{
+  "prediction": "happy",
+  "confidence": 72.5,
+  "emoji": "😊",
+  "all_emotions": {
+    "neutral": {"probability": 0.05, "percentage": 5.0, "emoji": "😐"},
+    "calm":    {"probability": 0.08, "percentage": 8.0, "emoji": "😌"},
+    "happy":   {"probability": 0.725, "percentage": 72.5, "emoji": "😊"},
+    "sad":     {"probability": 0.02, "percentage": 2.0, "emoji": "😢"},
+    "angry":   {"probability": 0.06, "percentage": 6.0, "emoji": "😠"},
+    "fearful": {"probability": 0.03, "percentage": 3.0, "emoji": "😨"},
+    "disgust": {"probability": 0.025, "percentage": 2.5, "emoji": "🤢"},
+    "surprised":{"probability": 0.01, "percentage": 1.0, "emoji": "😲"}
+  },
+  "analysis": "2-3 sentence explanation of what features led to this prediction, written as if from an emotion AI. Be specific about which features were telling."
+}`;
+
+  const resp = await fetch(CLAUDE_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(err.error?.message || 'Claude API error');
+  }
+
+  const raw = await resp.json();
+  const text = raw.content[0].text.trim();
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+async function extractBrowserFeatures() {
+  const arrayBuf = await audioBlob.arrayBuffer();
+  const audioCtx = new AudioContext();
+  const decoded  = await audioCtx.decodeAudioData(arrayBuf);
+  const data     = decoded.getChannelData(0);
+  const sr       = decoded.sampleRate;
+
+  const duration = decoded.duration;
+  let sumSq = 0, peakAmp = 0, crossings = 0;
+  for (let i = 0; i < data.length; i++) {
+    sumSq  += data[i] * data[i];
+    peakAmp = Math.max(peakAmp, Math.abs(data[i]));
+    if (i > 0 && Math.sign(data[i]) !== Math.sign(data[i - 1])) crossings++;
+  }
+  const rms = Math.sqrt(sumSq / data.length);
+  const zcr = crossings / (data.length / sr);
+
+  // Rough spectral centroid via FFT on first chunk
+  const fftSize = 2048;
+  const chunk   = data.slice(0, fftSize);
+  const analyserNode = audioCtx.createAnalyser();
+  analyserNode.fftSize = fftSize;
+  const src = audioCtx.createBufferSource();
+  src.buffer = decoded;
+  src.connect(analyserNode);
+  const freqData = new Float32Array(fftSize / 2);
+  analyserNode.getFloatFrequencyData(freqData);
+  let weightedSum = 0, magSum = 0;
+  for (let i = 0; i < freqData.length; i++) {
+    const mag = Math.pow(10, freqData[i] / 20);
+    weightedSum += i * mag;
+    magSum      += mag;
+  }
+  const spectralCentroid = magSum > 0 ? (weightedSum / magSum) / freqData.length : 0;
+
+  // Energy variance (frame-based)
+  const frameSize = 1024;
+  const energies  = [];
+  for (let i = 0; i + frameSize < data.length; i += frameSize) {
+    let e = 0;
+    for (let j = 0; j < frameSize; j++) e += data[i + j] ** 2;
+    energies.push(e / frameSize);
+  }
+  const meanE    = energies.reduce((a, b) => a + b, 0) / energies.length;
+  const varE     = energies.reduce((a, b) => a + (b - meanE) ** 2, 0) / energies.length;
+
+  return { duration, rms, zcr: zcr / 1000, spectralCentroid, peakAmplitude: peakAmp, energyVariance: varE };
+}
+
+// ── FastAPI Mode ─────────────────────────────────────────────
+async function analyseWithAPI() {
+  const form = new FormData();
+  form.append('file', audioBlob, fileNameDisplay.textContent || 'audio.wav');
+  const resp = await fetch(API_URL, { method: 'POST', body: form });
+  if (!resp.ok) {
+    const e = await resp.json();
+    throw new Error(e.detail || 'Server error');
+  }
+  return resp.json();
+}
+
+// ═══════════════════════════════════════════════════
+// Render Results
+// ═══════════════════════════════════════════════════
+
+function renderResults(data) {
+  document.getElementById('topEmoji').textContent    = data.emoji || '😐';
+  document.getElementById('topEmotion').textContent  = data.prediction;
+  document.getElementById('topConf').textContent     = `Confidence: ${data.confidence}%`;
+  document.getElementById('confBar').style.width     = `${data.confidence}%`;
+
+  // Emotion grid
+  const grid = document.getElementById('emotionsGrid');
+  grid.innerHTML = '';
+  const sorted = Object.entries(data.all_emotions)
+    .sort((a, b) => b[1].probability - a[1].probability);
+
+  sorted.forEach(([emotion, info], idx) => {
+    const isTop = emotion === data.prediction;
+    const color = EMOTION_COLORS[emotion] || '#888';
+    const card = document.createElement('div');
+    card.className = `emo-card${isTop ? ' top' : ''}`;
+    card.innerHTML = `
+      <div class="emo-emoji">${info.emoji}</div>
+      <div class="emo-info">
+        <div class="emo-name">${emotion}</div>
+        <div class="emo-bar-bg">
+          <div class="emo-bar-fill" style="width:0%; background:${color}; --delay:${idx * 60}ms" data-width="${info.percentage}%"></div>
+        </div>
+      </div>
+      <div class="emo-pct">${info.percentage}%</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  document.getElementById('analysisText').textContent = data.analysis || '';
+  results.classList.add('active');
+  modeBadge.textContent = DEMO_MODE ? 'DEMO · CLAUDE API' : 'LIVE · CNN MODEL';
+
+  // Animate bars
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.emo-bar-fill').forEach(el => {
+      setTimeout(() => { el.style.width = el.dataset.width; }, parseInt(el.style.getPropertyValue('--delay')) || 0);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Reset
+// ═══════════════════════════════════════════════════
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  audioBlob = null;
+  fileInput.value = '';
+  fileNameDisplay.textContent = '';
+  analyseSection.style.display = 'none';
+  results.classList.remove('active');
+  resetRow.style.display = 'none';
+  recTime.textContent = '0:00';
+  recStatus.textContent = 'Click to start recording (max 10s)';
+  hideError();
+  const W = waveCanvas.width = waveCanvas.offsetWidth;
+  const H = waveCanvas.height = 72;
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, W, H);
+  modeBadge.textContent = DEMO_MODE ? 'DEMO MODE' : 'LIVE MODE';
+});
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.classList.add('active');
+}
+function hideError() {
+  errorBox.classList.remove('active');
+}
+
+// Init canvas
+(function initCanvas() {
+  waveCanvas.width  = waveCanvas.offsetWidth;
+  waveCanvas.height = 72;
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, waveCanvas.width, 72);
+})();
+</script>
+</body>
+</html>
